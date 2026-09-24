@@ -494,9 +494,11 @@ function renderHome(){
         <div class="meta"><span><b>${due}</b> to review</span><span><b>${nl}</b> new words left today</span><span><b>${liveStreak()}</b> day streak</span></div>
       </div>
       <div class="today-actions">
-        ${canStart ? '<button class="btn primary big" id="go">Start session</button>' : '<button class="btn primary big" id="extra">Learn 5 more words</button>'}
+        ${canStart ? '<button class="btn primary big" id="go">'+(due && !nl ? 'Review '+due+(due===1?' word':' words') : 'Start session')+'</button>' : '<button class="btn primary big" id="extra">Learn 5 more words</button>'}
+        ${canStart && !nl ? '<button class="btn teal" id="extra">Learn 5 more words</button>' : ''}
         <button class="btn ghost" id="practice" ${started? '' : 'disabled'}>Practice round</button>
       </div>
+      ${!nl && started ? `<p class="muted" style="grid-column:1/-1;font-size:15px">You have met today's ${S.set.newPerDay} new words. Tap Learn 5 more words for more, or raise the daily number under Progress.</p>` : ''}
     </div>
     <div class="card upnext">
       <div class="eyebrow">Coming up next</div>
@@ -700,11 +702,14 @@ function startSession(mode){
     dueList().slice(0,10).forEach(id => tasks.push({k:'quiz', id}));
   } else {
     const known = Object.keys(S.w);
-    const weighted = shuffle(known.slice()).sort((a,b) => (S.w[a].l - S.w[b].l) + (Math.random()-.5)*3);
-    weighted.slice(0, 15).forEach(id => tasks.push({k:'quiz', id, practice:true}));
+    const now = Date.now();
+    let pool = known.filter(id => S.w[id].l < MASTER && now - (S.w[id].s||0) > 5*MIN);
+    if (pool.length < 8) pool = known.filter(id => now - (S.w[id].s||0) > 5*MIN);
+    if (pool.length < 4) pool = known.slice();
+    shuffle(pool).slice(0, 15).forEach(id => tasks.push({k:'quiz', id, practice:true}));
   }
   if (!tasks.length){ toast('Nothing to do right now. Try a practice round.'); return; }
-  SES = {mode, tasks, i:0, combo:0, best:0, a:0, c:0, xp:0, met:[], lit:[], lvUp:0};
+  SES = {mode, tasks, i:0, combo:0, best:0, a:0, c:0, xp:0, met:[], lit:[], lvUp:0, retries:{}};
   TAB_PREV = TAB; TAB = 'session';
   $('#session').hidden = false; document.body.style.overflow='hidden';
   nextTask();
@@ -728,14 +733,17 @@ function endSession(early){
     ${s.lit.length ? `<p class="eyebrow">Stars lit this round</p><div class="lit">${s.lit.map(id=>'<span>'+esc(BY.get(id).h)+'</span>').join('')}</div>` : ''}
     ${s.best>=5 ? `<p class="muted">Best combo: ${s.best} in a row</p>` : ''}
     <div class="actions" style="justify-content:center;width:100%">
-      ${moreDue || nl ? '<button class="btn primary big" id="again">Keep going</button>' : '<button class="btn primary big" id="again2">Practice round</button>'}
+      ${nl ? '<button class="btn primary big" id="again">Keep going</button>' : '<button class="btn primary big" id="more5">Learn 5 more words</button>'}
+      ${!nl && moreDue ? '<button class="btn ghost" id="again">Review '+moreDue+' more</button>' : ''}
+      ${!nl && !moreDue ? '<button class="btn ghost" id="again2">Practice round</button>' : ''}
       <button class="btn ghost" id="home">Back to my sky</button>
     </div>
   </div></div>`;
   $('#home').addEventListener('click', closeSession);
   $('#again') && $('#again').addEventListener('click', () => startSession('daily'));
   $('#again2') && $('#again2').addEventListener('click', () => startSession('practice'));
-  $('#again') ? $('#again').focus() : $('#again2').focus();
+  $('#more5') && $('#more5').addEventListener('click', () => startSession('extra'));
+  const f = $('#again') || $('#more5') || $('#again2'); f && f.focus();
 }
 function closeSession(){ $('#session').hidden = true; $('#session').innerHTML=''; $('#fb').hidden = true; document.body.style.overflow=''; TAB = TAB_PREV==='session'?'home':TAB_PREV; go(TAB); }
 function sesFrame(inner){
@@ -758,7 +766,7 @@ function nextTask(){
 function showMeet(t){
   const w = BY.get(t.id);
   sesFrame(`${wordCard(w, {eyebrow:'New word · '+kindName(w)+' '+w.n, said:true})}
-    <div class="actions"><button class="btn link" id="know">I already know this</button><button class="btn primary big" id="gotit">Got it</button></div>`);
+    <div class="actions"><button class="btn link" id="know">I already know this. Test me once.</button><button class="btn primary big" id="gotit">Got it</button></div>`);
   $('#gotit').focus({preventScroll:true});
   $('#gotit').addEventListener('click', () => {
     const said = $('#saidIt') && $('#saidIt').checked;
@@ -871,7 +879,7 @@ function answer(t, w, ok, info){
     dd.c++; SES.c++; SES.combo++; SES.best = Math.max(SES.best, SES.combo);
     r.r++;
     const dueNow = r.d <= now || t.learn || t.retry || t.test;
-    if (t.test){ r.l = Math.max(r.l, 4); r.d = now + INT[4]; note = 'Skipped ahead. It will come back in a week to make sure.'; }
+    if (t.test){ r.l = Math.max(r.l, 5); r.d = now + INT[5]; note = 'Nice. You know this one. It will check back once in about two weeks, then it is mastered.'; }
     else if (info.hint){ r.d = now + DAY; note = 'You used the hook, so this one stays at its level for now.'; }
     else if (!t.practice || dueNow){ r.l = Math.min(MASTER, r.l + 1); r.d = now + INT[r.l] * (0.9 + Math.random()*0.2); }
     gain = (info.typed ? 15 : 10) + Math.min(10, 2*(SES.combo-1));
@@ -881,7 +889,7 @@ function answer(t, w, ok, info){
   } else {
     r.w++; SES.combo = 0;
     if (t.test){ r.l = 0; r.d = now + INT[1]; insertTask(3, {k:'quiz', id:w.id, learn:true}); insertTask(8, {k:'quiz', id:w.id, learn:true}); }
-    else { r.l = r.l >= 3 ? r.l - 2 : Math.max(0, r.l - 1); r.d = now + INT[1]; insertTask(4, {k:'quiz', id:w.id, retry:true}); }
+    else { r.l = r.l >= 3 ? r.l - 2 : Math.max(0, r.l - 1); r.d = now + INT[1]; SES.retries[w.id] = (SES.retries[w.id]||0) + 1; if (SES.retries[w.id] <= 2) insertTask(4, {k:'quiz', id:w.id, retry:true}); }
   }
   r.s = now;
   if (gain) addXP(gain);
@@ -898,7 +906,7 @@ function showFeedback(t, w, ok, gain, note, info){
     fb.innerHTML = `<div class="fb-in"><h3>${pw} <small>+${gain}</small></h3>
       <p class="ans"><b>${esc(w.h)}</b> · ${esc(w.e)} <span class="muted">(${pw.replace('!','').toLowerCase()} means ${pe})</span></p>
       ${note ? `<p class="note">${esc(note)}</p>` : ''}
-      <div class="actions"><span class="muted">“${esc(w.k)}”</span><button class="btn primary" id="fbgo">Continue</button></div></div>`;
+      <div class="actions"><button class="btn link" id="fbknow">I know this one. Stop asking.</button><button class="btn primary" id="fbgo">Continue</button></div></div>`;
   } else {
     const first = w.s[0];
     fb.innerHTML = `<div class="fb-in"><h3>Auwē!</h3>
@@ -907,11 +915,21 @@ function showFeedback(t, w, ok, gain, note, info){
       <div class="reteach"><span class="lbl">Remember the story</span><q>“${esc(w.k)}”</q><p class="pic">${esc(w.c)}</p><p class="s">${esc(first)}</p>
         ${w.s.length>1 ? `<details><summary>Read the whole story</summary><div class="story" style="font-size:16px">${w.s.slice(1).map(p=>'<p>'+esc(p)+'</p>').join('')}</div></details>` : ''}
         <p><b>Say it.</b> ${esc(w.y)}</p></div>
-      <div class="actions"><span class="muted">It will come back in a few cards.</span><button class="btn primary" id="fbgo">Got it</button></div></div>`;
+      <div class="actions"><button class="btn link" id="fbknow">I know this one. Stop asking.</button><button class="btn primary" id="fbgo">Got it</button></div></div>`;
   }
   fb.hidden = false;
   $('#fbgo').focus({preventScroll:true});
   $('#fbgo').addEventListener('click', () => { SES.i++; nextTask(); });
+  let karm = false;
+  $('#fbknow').addEventListener('click', e => {
+    if (!karm){ karm = true; e.target.textContent = 'Tap again to mark it mastered'; return; }
+    const r = S.w[w.id]; const was = r.l;
+    r.l = MASTER; r.d = Date.now() + INT[MASTER];
+    if (was < MASTER){ day(dkey()).m++; SES.lit.push(w.id); }
+    SES.tasks = SES.tasks.filter((x, j) => j <= SES.i || x.id !== w.id);
+    save(); toast(w.h + ' is mastered. It will not come up for about 6 weeks.'); checkMilestone();
+    SES.i++; nextTask();
+  });
 }
 function checkMilestone(){
   const m = counts().m;
