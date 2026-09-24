@@ -31,4 +31,6 @@ There is no official frequency ranking of Hawaiian words, so the list is built f
 
 The app code is released under the MIT License. The word list and stories are released under the Creative Commons Attribution 4.0 International License (CC BY 4.0). See `LICENSE`.
 
-Made by [Olin Kealoha Lagon](https://olagon.github.io/).
+## Credits
+
+Made by [Olin Kealoha Lagon](https://olagon.github.io/), with [Claude](https://claude.ai) by Anthropic as a contributor. Olin set the direction and the style of the stories. Claude wrote the memory stories, built the app and ran the word audit against Pukui-Elbert and Māmaka Kaiao.
