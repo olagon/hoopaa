@@ -20,11 +20,12 @@ No signup and no server. Progress is saved in your browser. Use "Copy progress c
 ## Files
 
 - `index.html` is the whole app in one file, with the word list built in. Open it in any browser, or host it anywhere.
+- `AUDIT.md` lists every correction made in the word audit.
 - `hawaiian_1000_words.json` is the full word list as structured data: Hawaiian word, pronunciation, meaning, sound hook, story paragraphs, say-it action, bonus facts and a short scene summary for each word.
 
 ## A note on the words
 
-There is no official frequency ranking of Hawaiian words, so the list is built from the everyday words beginners hear and use most. Hawaiian treats describing words (to be big, to be red) as verbs, so many of those sit in the verb list. The sound hooks are memory tricks, not perfect pronunciation. Check words against [wehewehe.org](https://wehewehe.org) and learn from native speakers. Corrections are welcome as issues or pull requests.
+There is no official frequency ranking of Hawaiian words, so the list is built from the everyday words beginners hear and use most. In September 2026 every word was audited against Pukui-Elbert (1986) and Māmaka Kaiao on Wehewehe Wikiwiki, with an independent second check. See `AUDIT.md` for every change. Hawaiian treats describing words (to be big, to be red) as verbs, so many of those sit in the verb list. The sound hooks are memory tricks, not perfect pronunciation. Check words against [wehewehe.org](https://wehewehe.org) and learn from native speakers. Corrections are welcome as issues or pull requests.
 
 ## License
 
